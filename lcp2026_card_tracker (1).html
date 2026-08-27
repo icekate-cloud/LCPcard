@@ -265,6 +265,29 @@
     font-size:13px;
   }
 
+  .sync-banner{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    transform:translateX(-50%);
+    background:#3a1c14;
+    border:1px solid #7a3428;
+    color:#ffcfc0;
+    font-size:12.5px;
+    padding:9px 16px;
+    border-radius:999px;
+    box-shadow:0 6px 20px rgba(0,0,0,0.4);
+    display:none;
+    z-index:50;
+    white-space:nowrap;
+  }
+  .sync-banner.show{display:block;}
+  .sync-banner.ok{
+    background:#123a24;
+    border-color:#2fae6b;
+    color:#c9f5da;
+  }
+
   @media (max-width:560px){
     h1{font-size:21px;}
     .stat-ring{width:100%;justify-content:flex-start;}
