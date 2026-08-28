@@ -265,6 +265,29 @@
     font-size:13px;
   }
 
+  .sync-banner{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    transform:translateX(-50%);
+    background:#3a1c14;
+    border:1px solid #7a3428;
+    color:#ffcfc0;
+    font-size:12.5px;
+    padding:9px 16px;
+    border-radius:999px;
+    box-shadow:0 6px 20px rgba(0,0,0,0.4);
+    display:none;
+    z-index:50;
+    white-space:nowrap;
+  }
+  .sync-banner.show{display:block;}
+  .sync-banner.ok{
+    background:#123a24;
+    border-color:#2fae6b;
+    color:#c9f5da;
+  }
+
   @media (max-width:560px){
     h1{font-size:21px;}
     .stat-ring{width:100%;justify-content:flex-start;}
@@ -279,6 +302,7 @@
       <div class="eyebrow">LCP 2026 · MADE FOR THIS</div>
       <h1>小卡蒐集盤點</h1>
       <div class="subtitle">點卡片標記持有,進度自動儲存</div>
+      <div class="subtitle" id="saveStatus" style="margin-top:2px;"></div>
     </div>
     <div class="stat-ring">
       <div class="ring" id="ring"><span id="ringPct">0%</span></div>
@@ -565,12 +589,58 @@ async function loadOwned(){
   }
 }
 
-async function saveOwned(){
-  try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify(owned), false);
-  }catch(e){
-    console.error("儲存失敗", e);
+let saveTimer = null;
+let saveInFlight = false;
+let pendingSaveWanted = false;
+
+function setSaveStatus(text, isError){
+  const el = document.getElementById("saveStatus");
+  if(!el) return;
+  el.textContent = text;
+  el.style.color = isError ? "#ff8a7a" : "var(--text-2)";
+}
+
+function saveOwned(){
+  // 防抖：短時間內多次點擊只會在最後一次觸發後才真正送出
+  pendingSaveWanted = true;
+  setSaveStatus("儲存中...", false);
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 500);
+}
+
+async function flushSave(){
+  if(saveInFlight){
+    // 上一次還在送出，稍後再排一次
+    saveTimer = setTimeout(flushSave, 500);
+    return;
   }
+  pendingSaveWanted = false;
+  saveInFlight = true;
+
+  const payload = JSON.stringify(owned);
+  const maxAttempts = 3;
+
+  for(let attempt=1; attempt<=maxAttempts; attempt++){
+    try{
+      await window.storage.set(STORAGE_KEY, payload, false);
+      setSaveStatus("✓ 已儲存", false);
+      saveInFlight = false;
+      if(pendingSaveWanted){
+        saveTimer = setTimeout(flushSave, 500);
+      }
+      return;
+    }catch(e){
+      console.error(`儲存失敗（第 ${attempt} 次）`, e);
+      if(attempt < maxAttempts){
+        await new Promise(r=>setTimeout(r, attempt*800));
+      }else{
+        setSaveStatus("⚠ 儲存失敗，勾選仍會保留在畫面上，稍後會自動重試", true);
+      }
+    }
+  }
+  saveInFlight = false;
+  // 全部重試失敗後，過一段時間再自動嘗試一次
+  saveTimer = setTimeout(flushSave, 5000);
 }
 
 document.getElementById("search").addEventListener("input", applySearch);
