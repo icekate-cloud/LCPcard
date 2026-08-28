@@ -318,6 +318,7 @@
 
   <div class="searchrow">
     <input type="text" id="search" placeholder="搜尋選手/主播名稱，或輸入隊名如 CFO 查全部類型...">
+    <input type="text" id="nicknameInput" placeholder="暱稱（選填,匯出圖片會用到）" style="max-width:150px;">
     <button class="reset-btn" id="exportBtn">📸 匯出我的進度圖</button>
     <button class="reset-btn" id="resetBtn">清空目前分類</button>
   </div>
@@ -391,6 +392,9 @@ const DATA = {
   },
   "隊伍卡": {
     "隊伍":["CFO","DCG","DFM","GAM","GZ","MVK","SHG","TSW"]
+  },
+  "隱藏卡": {
+    "雙人隱藏卡":["柯基+戰馬","Taki+Naul"]
   }
 };
 
@@ -404,6 +408,7 @@ const CAT_NOTES = {
 const TEAM_CODES = ["CFO","DCG","DFM","GAM","GZ","MVK","SHG","TSW"];
 
 const STORAGE_KEY = "lcp2026_owned_cards";
+const NICKNAME_KEY = "lcp2026_nickname";
 let storageBackend = null; // 'claude' 或 'local'
 
 function detectStorageBackend(){
@@ -699,9 +704,15 @@ function exportImage(){
   const ctx = canvas.getContext('2d');
 
   const TEAM_COLORS = {
-    "CFO":"#4fd1d1","DCG":"#b48bff","DFM":"#5b9dff","GAM":"#ffd166",
-    "GZ":"#ff7a7a","MVK":"#5fd99a","SHG":"#ff9f5c","TSW":"#9aa4ff",
-    "Caster/Host":"#e0895c","隊伍":"#ff7a3d"
+    "CFO":"#e0b04d",       // CTBC Flying Oyster：藏青盾牌上的金色字樣
+    "DCG":"#4fc3f7",       // DetonatioN FM：黑藍雙色環的藍
+    "DFM":"#3b6fd6",       // Deep Cross Gaming：藍黑X字標
+    "GAM":"#f5a623",       // GAM Esports：金色雄鷹
+    "GZ":"#6cc24a",        // Ground Zero：綠色幸運草
+    "MVK":"#ff6a3d",       // MVK Esports：橘紅閃電
+    "SHG":"#9fb4c7",       // SoftBank Hawks：黑白簡約風格
+    "TSW":"#8b7cf6",       // Team Secret Whales：黑色鯨眼
+    "Caster/Host":"#e0895c","隊伍":"#ff7a3d","雙人隱藏卡":"#c084fc"
   };
   function teamColor(team){ return TEAM_COLORS[team] || "#cbb8ad"; }
 
@@ -749,10 +760,14 @@ function exportImage(){
   const headerBarH = 32;
   const innerPad = 14;
 
+  // 「隊伍卡」欄位卡片數多但沒有分隊伍，改成拆成2個子欄(4+4)以縮短版面
+  const SPLIT_SUBCOLS = { "隊伍卡": 2 };
+
   const sectionMeta = {};
   Object.keys(DATA).forEach(cat=>{
     const teams = Object.keys(DATA[cat]);
-    const maxRows = Math.max(...teams.map(t=>DATA[cat][t].length));
+    const subCols = SPLIT_SUBCOLS[cat] || 1;
+    const maxRows = Math.max(...teams.map(t=>Math.ceil(DATA[cat][t].length / subCols)));
     let got = 0, total = 0;
     teams.forEach(t=>DATA[cat][t].forEach(card=>{
       total++;
@@ -760,10 +775,10 @@ function exportImage(){
     }));
     const gridH = colHeaderH + maxRows*rowH;
     const blockH = innerPad*2 + headerBarH + 6 + gridH;
-    sectionMeta[cat] = {cat, note: CAT_NOTES[cat] || "", teams, maxRows, got, total, blockH, gridH};
+    sectionMeta[cat] = {cat, note: CAT_NOTES[cat] || "", teams, maxRows, got, total, blockH, gridH, subCols};
   });
 
-  // 隊伍數少（<=3）的分類自動兩兩並排，節省版面
+  // 隊伍數少（<=3）的分類自動並排（最多3個一列），節省版面
   const panelGap = 16;
   const catKeys = Object.keys(DATA);
   const isCompact = cat => sectionMeta[cat].teams.length <= 3;
@@ -771,10 +786,14 @@ function exportImage(){
   {
     let i = 0;
     while(i < catKeys.length){
-      const cat = catKeys[i];
-      if(isCompact(cat) && i+1 < catKeys.length && isCompact(catKeys[i+1])){
-        rows.push([catKeys[i], catKeys[i+1]]);
-        i += 2;
+      if(isCompact(catKeys[i])){
+        const group = [catKeys[i]];
+        i += 1;
+        while(group.length < 3 && i < catKeys.length && isCompact(catKeys[i])){
+          group.push(catKeys[i]);
+          i += 1;
+        }
+        rows.push(group);
       }else{
         rows.push([catKeys[i]]);
         i += 1;
@@ -808,13 +827,16 @@ function exportImage(){
   ctx.fillStyle = glow;
   ctx.fillRect(0,0,W,320);
 
+  const nickname = document.getElementById("nicknameInput").value.trim();
+  const titleText = nickname ? `${nickname}的蒐集進度` : "我的蒐集進度";
+
   ctx.fillStyle = "#ffb347";
   ctx.font = "bold 13px sans-serif";
   ctx.fillText("LCP 2026 · MADE FOR THIS", PAD, 40);
 
   ctx.fillStyle = "#f4ece6";
   ctx.font = "900 32px sans-serif";
-  ctx.fillText("我的蒐集進度", PAD, 80);
+  ctx.fillText(fitText(titleText, W-PAD*2-180, "900 32px sans-serif"), PAD, 80);
 
   ctx.fillStyle = "#cbb8ad";
   ctx.font = "13px sans-serif";
@@ -882,18 +904,26 @@ function exportImage(){
       ctx.textAlign = "left";
 
       const cards = DATA[sec.cat][team];
+      const subCols = sec.subCols || 1;
+      const rowsPerSub = Math.ceil(cards.length / subCols);
+      const subGap = 10;
+      const subW = (colW - subGap*(subCols-1)) / subCols;
+
       cards.forEach((card, j)=>{
-        const rowY = gridY + colHeaderH + j*rowH;
+        const subIdx = Math.floor(j / rowsPerSub);
+        const rowInSub = j % rowsPerSub;
+        const subX = colX + subIdx*(subW+subGap);
+        const rowY = gridY + colHeaderH + rowInSub*rowH;
         const isOwned = !!owned[cardId(sec.cat, team, card)];
-        const iconCx = colX + 9;
+        const iconCx = subX + 9;
         const iconCy = rowY + rowH/2;
         if(isOwned) drawCheck(iconCx, iconCy, 6);
         else drawCross(iconCx, iconCy, 6);
 
         ctx.fillStyle = isOwned ? "#eef7f0" : "#7a675e";
         ctx.font = "11px sans-serif";
-        const label = fitText(card, colW-20, "11px sans-serif");
-        ctx.fillText(label, colX+18, rowY+rowH/2+4);
+        const label = fitText(card, subW-20, "11px sans-serif");
+        ctx.fillText(label, subX+18, rowY+rowH/2+4);
       });
     });
   }
@@ -901,12 +931,14 @@ function exportImage(){
   let cy = headerH + 10;
   rows.forEach((rowCats, idx)=>{
     const rh = rowHeights[idx];
-    if(rowCats.length === 1){
+    const n = rowCats.length;
+    if(n === 1){
       drawPanel(rowCats[0], PAD, cy, contentW, rh);
     }else{
-      const halfW = (contentW - panelGap) / 2;
-      drawPanel(rowCats[0], PAD, cy, halfW, rh);
-      drawPanel(rowCats[1], PAD + halfW + panelGap, cy, halfW, rh);
+      const w = (contentW - panelGap*(n-1)) / n;
+      rowCats.forEach((cat, k)=>{
+        drawPanel(cat, PAD + k*(w+panelGap), cy, w, rh);
+      });
     }
     cy += rh + sectionGap;
   });
@@ -942,8 +974,23 @@ document.getElementById("resetBtn").addEventListener("click", async ()=>{
   await saveOwned();
 });
 
+async function loadNickname(){
+  try{
+    const val = await storageGetValue(NICKNAME_KEY);
+    if(val) document.getElementById("nicknameInput").value = val;
+  }catch(e){}
+}
+
+document.getElementById("nicknameInput").addEventListener("change", async ()=>{
+  const val = document.getElementById("nicknameInput").value.trim();
+  try{
+    await storageSetValue(NICKNAME_KEY, val);
+  }catch(e){}
+});
+
 (async function init(){
   await loadOwned();
+  await loadNickname();
   render();
 })();
 </script>
