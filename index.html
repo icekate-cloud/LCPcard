@@ -317,7 +317,7 @@
 
   <div class="searchrow">
     <input type="text" id="search" placeholder="搜尋選手/主播名稱，或輸入隊名如 CFO 查全部類型...">
-    <button class="reset-btn" id="exportBtn">📸 匯出戰績圖</button>
+    <button class="reset-btn" id="exportBtn">📸 匯出我的進度圖</button>
     <button class="reset-btn" id="resetBtn">清空目前分類</button>
   </div>
   <div class="search-hint">輸入隊名代碼（如 <b>CFO</b>、<b>DCG</b>）可一次看到該隊在所有卡款中的卡片</div>
@@ -692,23 +692,64 @@ function exportImage(){
   const PAD = 40;
   const contentW = W - PAD*2;
 
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = 10;
+  const ctx = canvas.getContext('2d');
+
+  // 依隊伍分組並自動換行，格式如「CFO：Rest、Shadow、Doggo」
+  // 沒有卡片的隊伍直接跳過，避免版面雜亂
+  function buildGroupedLines(teamsData, keepCard, font, maxWidth){
+    ctx.font = font;
+    const lines = [];
+    let hasAny = false;
+    Object.keys(teamsData).forEach(team=>{
+      const items = teamsData[team].filter(card => keepCard(team, card));
+      if(items.length === 0) return;
+      hasAny = true;
+      const prefix = `${team}：`;
+      let cur = prefix;
+      items.forEach((card, idx)=>{
+        const sep = idx===0 ? "" : "、";
+        const attempt = cur + sep + card;
+        if(ctx.measureText(attempt).width > maxWidth && cur !== prefix){
+          lines.push(cur);
+          cur = card;
+        }else{
+          cur = attempt;
+        }
+      });
+      lines.push(cur);
+    });
+    return {lines, hasAny};
+  }
+
   const sections = Object.keys(DATA).map(cat=>{
-    const ownedList = [];
-    const missingList = [];
+    let got = 0, total = 0;
     Object.keys(DATA[cat]).forEach(team=>{
       DATA[cat][team].forEach(card=>{
-        const label = `${team} ${card}`;
-        if(owned[cardId(cat,team,card)]) ownedList.push(label);
-        else missingList.push(label);
+        total++;
+        if(owned[cardId(cat,team,card)]) got++;
       });
     });
+
+    const ownedResult = buildGroupedLines(
+      DATA[cat],
+      (team,card)=> !!owned[cardId(cat,team,card)],
+      "13px sans-serif", contentW-32
+    );
+    const missingResult = buildGroupedLines(
+      DATA[cat],
+      (team,card)=> !owned[cardId(cat,team,card)],
+      "13px sans-serif", contentW-32
+    );
+
     return {
       cat,
       note: CAT_NOTES[cat] || "",
-      got: ownedList.length,
-      total: ownedList.length + missingList.length,
-      ownedList,
-      missingList
+      got, total,
+      ownedLines: ownedResult.hasAny ? ownedResult.lines : ["（尚無）"],
+      missingLines: missingResult.hasAny ? missingResult.lines : ["（已全部集滿！）"]
     };
   });
 
@@ -717,39 +758,14 @@ function exportImage(){
   const pct = totalAll ? Math.round(gotAll/totalAll*100) : 0;
   const dateStr = new Date().toLocaleDateString('zh-TW');
 
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = 10;
-  const ctx = canvas.getContext('2d');
-
-  function wrapCSV(text, font, maxWidth){
-    ctx.font = font;
-    const items = text.split(', ');
-    const lines = [];
-    let cur = "";
-    items.forEach(it=>{
-      const attempt = cur ? cur + ', ' + it : it;
-      if(ctx.measureText(attempt).width > maxWidth && cur){
-        lines.push(cur + ',');
-        cur = it;
-      }else{
-        cur = attempt;
-      }
-    });
-    if(cur) lines.push(cur);
-    return lines;
-  }
-
   const headerH = 150;
   const lineH = 19;
   const sectionGap = 14;
 
   const sectionLayouts = sections.map(sec=>{
-    const ownedLines = sec.ownedList.length ? wrapCSV(sec.ownedList.join(', '), "13px sans-serif", contentW-32) : ["（尚無）"];
-    const missingLines = sec.missingList.length ? wrapCSV(sec.missingList.join(', '), "13px sans-serif", contentW-32) : ["（已全部集滿！）"];
     const innerPad = 16;
-    const blockH = innerPad + 34 + 20 + ownedLines.length*lineH + 20 + missingLines.length*lineH + innerPad;
-    return {...sec, ownedLines, missingLines, blockH};
+    const blockH = innerPad + 34 + 20 + sec.ownedLines.length*lineH + 20 + sec.missingLines.length*lineH + innerPad;
+    return {...sec, blockH};
   });
 
   const totalSectionsH = sectionLayouts.reduce((s,sec)=>s+sec.blockH+sectionGap,0);
@@ -776,7 +792,7 @@ function exportImage(){
 
   ctx.fillStyle = "#f4ece6";
   ctx.font = "900 32px sans-serif";
-  ctx.fillText("我的小卡蒐集戰績", PAD, 80);
+  ctx.fillText("我的蒐集進度", PAD, 80);
 
   ctx.fillStyle = "#cbb8ad";
   ctx.font = "13px sans-serif";
@@ -852,7 +868,7 @@ function exportImage(){
   ctx.textAlign = "left";
 
   const link = document.createElement('a');
-  link.download = `LCP2026_小卡戰績_${dateStr.replace(/\//g,'-')}.png`;
+  link.download = `LCP2026_我的蒐集進度_${dateStr.replace(/\//g,'-')}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
