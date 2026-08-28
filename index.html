@@ -688,7 +688,7 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 function exportImage(){
-  const W = 860;
+  const W = 940;
   const PAD = 40;
   const contentW = W - PAD*2;
 
@@ -697,60 +697,68 @@ function exportImage(){
   canvas.height = 10;
   const ctx = canvas.getContext('2d');
 
-  // 依隊伍分組並自動換行，格式如「CFO：Rest、Shadow、Doggo」
-  // 沒有卡片的隊伍直接跳過，避免版面雜亂
-  function buildGroupedLines(teamsData, keepCard, font, maxWidth){
+  const TEAM_COLORS = {
+    "CFO":"#4fd1d1","DCG":"#b48bff","DFM":"#5b9dff","GAM":"#ffd166",
+    "GZ":"#ff7a7a","MVK":"#5fd99a","SHG":"#ff9f5c","TSW":"#9aa4ff",
+    "Caster/Host":"#e0895c","隊伍":"#ff7a3d"
+  };
+  function teamColor(team){ return TEAM_COLORS[team] || "#cbb8ad"; }
+
+  function fitText(text, maxWidth, font){
     ctx.font = font;
-    const lines = [];
-    let hasAny = false;
-    Object.keys(teamsData).forEach(team=>{
-      const items = teamsData[team].filter(card => keepCard(team, card));
-      if(items.length === 0) return;
-      hasAny = true;
-      const prefix = `${team}：`;
-      let cur = prefix;
-      items.forEach((card, idx)=>{
-        const sep = idx===0 ? "" : "、";
-        const attempt = cur + sep + card;
-        if(ctx.measureText(attempt).width > maxWidth && cur !== prefix){
-          lines.push(cur);
-          cur = card;
-        }else{
-          cur = attempt;
-        }
-      });
-      lines.push(cur);
-    });
-    return {lines, hasAny};
+    if(ctx.measureText(text).width <= maxWidth) return text;
+    let t = text;
+    while(t.length > 1 && ctx.measureText(t+"…").width > maxWidth){
+      t = t.slice(0,-1);
+    }
+    return t + "…";
   }
 
-  const sections = Object.keys(DATA).map(cat=>{
+  function drawCheck(cx, cy, r){
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle = "#2fae6b";
+    ctx.fill();
+    ctx.strokeStyle = "#eafff2";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx-r*0.5, cy+r*0.05);
+    ctx.lineTo(cx-r*0.1, cy+r*0.45);
+    ctx.lineTo(cx+r*0.55, cy-r*0.4);
+    ctx.stroke();
+  }
+  function drawCross(cx, cy, r){
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle = "#4a352c";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.strokeStyle = "#a85c4c";
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(cx-r*0.4, cy-r*0.4); ctx.lineTo(cx+r*0.4, cy+r*0.4);
+    ctx.moveTo(cx+r*0.4, cy-r*0.4); ctx.lineTo(cx-r*0.4, cy+r*0.4);
+    ctx.stroke();
+  }
+
+  // 每個分類 = 一張表：欄是隊伍、列是卡片，已持有打勾、未持有打叉
+  const colGap = 6;
+  const rowH = 21;
+  const colHeaderH = 24;
+  const headerBarH = 32;
+  const innerPad = 14;
+
+  const sectionLayouts = Object.keys(DATA).map(cat=>{
+    const teams = Object.keys(DATA[cat]);
+    const maxRows = Math.max(...teams.map(t=>DATA[cat][t].length));
     let got = 0, total = 0;
-    Object.keys(DATA[cat]).forEach(team=>{
-      DATA[cat][team].forEach(card=>{
-        total++;
-        if(owned[cardId(cat,team,card)]) got++;
-      });
-    });
-
-    const ownedResult = buildGroupedLines(
-      DATA[cat],
-      (team,card)=> !!owned[cardId(cat,team,card)],
-      "13px sans-serif", contentW-32
-    );
-    const missingResult = buildGroupedLines(
-      DATA[cat],
-      (team,card)=> !owned[cardId(cat,team,card)],
-      "13px sans-serif", contentW-32
-    );
-
-    return {
-      cat,
-      note: CAT_NOTES[cat] || "",
-      got, total,
-      ownedLines: ownedResult.hasAny ? ownedResult.lines : ["（尚無）"],
-      missingLines: missingResult.hasAny ? missingResult.lines : ["（已全部集滿！）"]
-    };
+    teams.forEach(t=>DATA[cat][t].forEach(card=>{
+      total++;
+      if(owned[cardId(cat,t,card)]) got++;
+    }));
+    const gridH = colHeaderH + maxRows*rowH;
+    const blockH = innerPad*2 + headerBarH + 6 + gridH;
+    return {cat, note: CAT_NOTES[cat] || "", teams, maxRows, got, total, blockH, gridH};
   });
 
   const totalAll = totalCardsAll();
@@ -759,15 +767,7 @@ function exportImage(){
   const dateStr = new Date().toLocaleDateString('zh-TW');
 
   const headerH = 150;
-  const lineH = 19;
   const sectionGap = 14;
-
-  const sectionLayouts = sections.map(sec=>{
-    const innerPad = 16;
-    const blockH = innerPad + 34 + 20 + sec.ownedLines.length*lineH + 20 + sec.missingLines.length*lineH + innerPad;
-    return {...sec, blockH};
-  });
-
   const totalSectionsH = sectionLayouts.reduce((s,sec)=>s+sec.blockH+sectionGap,0);
   const footerH = 50;
   const totalH = headerH + totalSectionsH + footerH + PAD;
@@ -824,38 +824,60 @@ function exportImage(){
     roundRect(ctx, PAD, cy, contentW, blockH, 12);
     ctx.stroke();
 
-    let ty = cy + 16;
+    // 分類標題列
     ctx.fillStyle = "#ffb347";
     ctx.font = "900 16px sans-serif";
     const noteStr = sec.note ? `（${sec.note}）` : "";
-    ctx.fillText(`${sec.cat}${noteStr}`, PAD+16, ty+14);
+    ctx.fillText(`${sec.cat}${noteStr}`, PAD+innerPad, cy+innerPad+14);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#cbb8ad";
     ctx.font = "13px sans-serif";
-    ctx.fillText(`${sec.got} / ${sec.total}`, W-PAD-16, ty+14);
+    ctx.fillText(`${sec.got} / ${sec.total}`, W-PAD-innerPad, cy+innerPad+14);
     ctx.textAlign = "left";
 
-    ty += 34;
-    ctx.fillStyle = "#2fae6b";
-    ctx.font = "bold 12px sans-serif";
-    ctx.fillText("已持有：", PAD+16, ty);
-    ctx.fillStyle = "#c9f5da";
-    ctx.font = "13px sans-serif";
-    sec.ownedLines.forEach(line=>{
-      ty += lineH;
-      ctx.fillText(line, PAD+16, ty);
-    });
+    // 表格區
+    const gridX = PAD + innerPad;
+    const gridY = cy + innerPad + headerBarH + 6;
+    const gridW = contentW - innerPad*2;
+    const numTeams = sec.teams.length;
+    const colW = (gridW - colGap*(numTeams-1)) / numTeams;
 
-    ty += 20;
-    ctx.fillStyle = "#e08a5c";
-    ctx.font = "bold 12px sans-serif";
-    ctx.fillText("尚缺：", PAD+16, ty);
-    ctx.fillStyle = "#cbb8ad";
-    ctx.font = "13px sans-serif";
-    sec.missingLines.forEach(line=>{
-      ty += lineH;
-      ctx.fillText(line, PAD+16, ty);
+    sec.teams.forEach((team, i)=>{
+      const colX = gridX + i*(colW+colGap);
+      const tColor = teamColor(team);
+
+      // 隊伍欄標頭膠囊
+      ctx.fillStyle = tColor + "26";
+      roundRect(ctx, colX, gridY, colW, colHeaderH-4, 6);
+      ctx.fill();
+      ctx.strokeStyle = tColor + "80";
+      ctx.lineWidth = 1;
+      roundRect(ctx, colX, gridY, colW, colHeaderH-4, 6);
+      ctx.stroke();
+
+      ctx.fillStyle = tColor;
+      ctx.font = "bold 11px sans-serif";
+      ctx.textAlign = "center";
+      const headerLabel = fitText(team, colW-8, "bold 11px sans-serif");
+      ctx.fillText(headerLabel, colX+colW/2, gridY+(colHeaderH-4)/2+4);
+      ctx.textAlign = "left";
+
+      // 卡片列
+      const cards = DATA[sec.cat][team];
+      cards.forEach((card, j)=>{
+        const rowY = gridY + colHeaderH + j*rowH;
+        const isOwned = !!owned[cardId(sec.cat, team, card)];
+        const iconCx = colX + 9;
+        const iconCy = rowY + rowH/2;
+        if(isOwned) drawCheck(iconCx, iconCy, 6);
+        else drawCross(iconCx, iconCy, 6);
+
+        ctx.fillStyle = isOwned ? "#eef7f0" : "#7a675e";
+        ctx.font = isOwned ? "11px sans-serif" : "11px sans-serif";
+        const label = fitText(card, colW-20, "11px sans-serif");
+        ctx.fillText(label, colX+18, rowY+rowH/2+4);
+      });
     });
 
     cy += blockH + sectionGap;
