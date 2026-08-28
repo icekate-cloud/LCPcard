@@ -302,6 +302,7 @@
       <div class="eyebrow">LCP 2026 · MADE FOR THIS</div>
       <h1>小卡蒐集盤點</h1>
       <div class="subtitle">點卡片標記持有,進度自動儲存</div>
+      <div class="subtitle" style="opacity:0.55;">Threads @kunkuniv</div>
       <div class="subtitle" id="saveStatus" style="margin-top:2px;"></div>
     </div>
     <div class="stat-ring">
@@ -748,7 +749,8 @@ function exportImage(){
   const headerBarH = 32;
   const innerPad = 14;
 
-  const sectionLayouts = Object.keys(DATA).map(cat=>{
+  const sectionMeta = {};
+  Object.keys(DATA).forEach(cat=>{
     const teams = Object.keys(DATA[cat]);
     const maxRows = Math.max(...teams.map(t=>DATA[cat][t].length));
     let got = 0, total = 0;
@@ -758,8 +760,28 @@ function exportImage(){
     }));
     const gridH = colHeaderH + maxRows*rowH;
     const blockH = innerPad*2 + headerBarH + 6 + gridH;
-    return {cat, note: CAT_NOTES[cat] || "", teams, maxRows, got, total, blockH, gridH};
+    sectionMeta[cat] = {cat, note: CAT_NOTES[cat] || "", teams, maxRows, got, total, blockH, gridH};
   });
+
+  // 隊伍數少（<=3）的分類自動兩兩並排，節省版面
+  const panelGap = 16;
+  const catKeys = Object.keys(DATA);
+  const isCompact = cat => sectionMeta[cat].teams.length <= 3;
+  const rows = [];
+  {
+    let i = 0;
+    while(i < catKeys.length){
+      const cat = catKeys[i];
+      if(isCompact(cat) && i+1 < catKeys.length && isCompact(catKeys[i+1])){
+        rows.push([catKeys[i], catKeys[i+1]]);
+        i += 2;
+      }else{
+        rows.push([catKeys[i]]);
+        i += 1;
+      }
+    }
+  }
+  const rowHeights = rows.map(r => Math.max(...r.map(c=>sectionMeta[c].blockH)));
 
   const totalAll = totalCardsAll();
   const gotAll = gotCardsAll();
@@ -768,7 +790,7 @@ function exportImage(){
 
   const headerH = 150;
   const sectionGap = 14;
-  const totalSectionsH = sectionLayouts.reduce((s,sec)=>s+sec.blockH+sectionGap,0);
+  const totalSectionsH = rowHeights.reduce((s,h)=>s+h+sectionGap,0);
   const footerH = 50;
   const totalH = headerH + totalSectionsH + footerH + PAD;
 
@@ -813,33 +835,30 @@ function exportImage(){
   ctx.lineTo(W-PAD, headerH-10);
   ctx.stroke();
 
-  let cy = headerH + 10;
-  sectionLayouts.forEach(sec=>{
-    const blockH = sec.blockH;
+  function drawPanel(cat, x, y, w, h){
+    const sec = sectionMeta[cat];
     ctx.fillStyle = "#1f1512";
-    roundRect(ctx, PAD, cy, contentW, blockH, 12);
+    roundRect(ctx, x, y, w, h, 12);
     ctx.fill();
     ctx.strokeStyle = "#3a2620";
     ctx.lineWidth = 1;
-    roundRect(ctx, PAD, cy, contentW, blockH, 12);
+    roundRect(ctx, x, y, w, h, 12);
     ctx.stroke();
 
-    // 分類標題列
     ctx.fillStyle = "#ffb347";
     ctx.font = "900 16px sans-serif";
     const noteStr = sec.note ? `（${sec.note}）` : "";
-    ctx.fillText(`${sec.cat}${noteStr}`, PAD+innerPad, cy+innerPad+14);
+    ctx.fillText(`${sec.cat}${noteStr}`, x+innerPad, y+innerPad+14);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#cbb8ad";
     ctx.font = "13px sans-serif";
-    ctx.fillText(`${sec.got} / ${sec.total}`, W-PAD-innerPad, cy+innerPad+14);
+    ctx.fillText(`${sec.got} / ${sec.total}`, x+w-innerPad, y+innerPad+14);
     ctx.textAlign = "left";
 
-    // 表格區
-    const gridX = PAD + innerPad;
-    const gridY = cy + innerPad + headerBarH + 6;
-    const gridW = contentW - innerPad*2;
+    const gridX = x + innerPad;
+    const gridY = y + innerPad + headerBarH + 6;
+    const gridW = w - innerPad*2;
     const numTeams = sec.teams.length;
     const colW = (gridW - colGap*(numTeams-1)) / numTeams;
 
@@ -847,7 +866,6 @@ function exportImage(){
       const colX = gridX + i*(colW+colGap);
       const tColor = teamColor(team);
 
-      // 隊伍欄標頭膠囊
       ctx.fillStyle = tColor + "26";
       roundRect(ctx, colX, gridY, colW, colHeaderH-4, 6);
       ctx.fill();
@@ -863,7 +881,6 @@ function exportImage(){
       ctx.fillText(headerLabel, colX+colW/2, gridY+(colHeaderH-4)/2+4);
       ctx.textAlign = "left";
 
-      // 卡片列
       const cards = DATA[sec.cat][team];
       cards.forEach((card, j)=>{
         const rowY = gridY + colHeaderH + j*rowH;
@@ -874,19 +891,30 @@ function exportImage(){
         else drawCross(iconCx, iconCy, 6);
 
         ctx.fillStyle = isOwned ? "#eef7f0" : "#7a675e";
-        ctx.font = isOwned ? "11px sans-serif" : "11px sans-serif";
+        ctx.font = "11px sans-serif";
         const label = fitText(card, colW-20, "11px sans-serif");
         ctx.fillText(label, colX+18, rowY+rowH/2+4);
       });
     });
+  }
 
-    cy += blockH + sectionGap;
+  let cy = headerH + 10;
+  rows.forEach((rowCats, idx)=>{
+    const rh = rowHeights[idx];
+    if(rowCats.length === 1){
+      drawPanel(rowCats[0], PAD, cy, contentW, rh);
+    }else{
+      const halfW = (contentW - panelGap) / 2;
+      drawPanel(rowCats[0], PAD, cy, halfW, rh);
+      drawPanel(rowCats[1], PAD + halfW + panelGap, cy, halfW, rh);
+    }
+    cy += rh + sectionGap;
   });
 
   ctx.fillStyle = "#8a7369";
   ctx.font = "11px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("由 LCP 小卡蒐集盤點工具產生", W/2, totalH-24);
+  ctx.fillText("由 LCP 小卡蒐集盤點工具產生 · Threads @kunkuniv", W/2, totalH-24);
   ctx.textAlign = "left";
 
   const link = document.createElement('a');
