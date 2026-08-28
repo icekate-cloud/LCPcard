@@ -317,6 +317,7 @@
 
   <div class="searchrow">
     <input type="text" id="search" placeholder="搜尋選手/主播名稱，或輸入隊名如 CFO 查全部類型...">
+    <button class="reset-btn" id="exportBtn">📸 匯出戰績圖</button>
     <button class="reset-btn" id="resetBtn">清空目前分類</button>
   </div>
   <div class="search-hint">輸入隊名代碼（如 <b>CFO</b>、<b>DCG</b>）可一次看到該隊在所有卡款中的卡片</div>
@@ -352,7 +353,7 @@ const DATA = {
     "SHG":["Evi","Van1","Aria","Marble","Vsta"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie"]
   },
-  "特別卡A款": {
+  "閃卡A款": {
     "CFO":["Rest","Shadow","Doggo"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody"],
@@ -362,7 +363,7 @@ const DATA = {
     "SHG":["Evi","Van1","Aria","Marble","Vsta"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie"]
   },
-  "特別卡B款": {
+  "閃卡B款": {
     "CFO":["Rest","Shadow","Pout","Doggo","Kino","Chawy"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang","Refra1n"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody","Paz"],
@@ -395,13 +396,45 @@ const DATA = {
 const CAT_NOTES = {
   "一般卡A款": "正臉去背",
   "一般卡B款": "側臉有背景",
-  "特別卡A款": "背景有隊名",
-  "特別卡B款": "銀色外框"
+  "閃卡A款": "背景有隊名",
+  "閃卡B款": "銀色外框"
 };
 
 const TEAM_CODES = ["CFO","DCG","DFM","GAM","GZ","MVK","SHG","TSW"];
 
 const STORAGE_KEY = "lcp2026_owned_cards";
+let storageBackend = null; // 'claude' 或 'local'
+
+function detectStorageBackend(){
+  try{
+    if(typeof window.storage !== "undefined" && typeof window.storage.get === "function"){
+      storageBackend = "claude";
+      return;
+    }
+  }catch(e){}
+  storageBackend = "local";
+}
+
+async function storageGetValue(key){
+  if(storageBackend === "claude"){
+    const result = await window.storage.get(key, false);
+    return result ? result.value : null;
+  }
+  try{
+    return window.localStorage.getItem(key);
+  }catch(e){
+    return null;
+  }
+}
+
+async function storageSetValue(key, value){
+  if(storageBackend === "claude"){
+    await window.storage.set(key, value, false);
+    return;
+  }
+  window.localStorage.setItem(key, value);
+}
+
 let owned = {};
 let activeCat = Object.keys(DATA)[0];
 let searchTerm = "";
@@ -579,10 +612,11 @@ function render(){
 }
 
 async function loadOwned(){
+  detectStorageBackend();
   try{
-    const result = await window.storage.get(STORAGE_KEY, false);
-    if(result && result.value){
-      owned = JSON.parse(result.value);
+    const val = await storageGetValue(STORAGE_KEY);
+    if(val){
+      owned = JSON.parse(val);
     }
   }catch(e){
     owned = {};
@@ -622,8 +656,8 @@ async function flushSave(){
 
   for(let attempt=1; attempt<=maxAttempts; attempt++){
     try{
-      await window.storage.set(STORAGE_KEY, payload, false);
-      setSaveStatus("✓ 已儲存", false);
+      await storageSetValue(STORAGE_KEY, payload);
+      setSaveStatus(storageBackend === "local" ? "✓ 已儲存在此瀏覽器" : "✓ 已儲存", false);
       saveInFlight = false;
       if(pendingSaveWanted){
         saveTimer = setTimeout(flushSave, 500);
@@ -642,6 +676,188 @@ async function flushSave(){
   // 全部重試失敗後，過一段時間再自動嘗試一次
   saveTimer = setTimeout(flushSave, 5000);
 }
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function exportImage(){
+  const W = 860;
+  const PAD = 40;
+  const contentW = W - PAD*2;
+
+  const sections = Object.keys(DATA).map(cat=>{
+    const ownedList = [];
+    const missingList = [];
+    Object.keys(DATA[cat]).forEach(team=>{
+      DATA[cat][team].forEach(card=>{
+        const label = `${team} ${card}`;
+        if(owned[cardId(cat,team,card)]) ownedList.push(label);
+        else missingList.push(label);
+      });
+    });
+    return {
+      cat,
+      note: CAT_NOTES[cat] || "",
+      got: ownedList.length,
+      total: ownedList.length + missingList.length,
+      ownedList,
+      missingList
+    };
+  });
+
+  const totalAll = totalCardsAll();
+  const gotAll = gotCardsAll();
+  const pct = totalAll ? Math.round(gotAll/totalAll*100) : 0;
+  const dateStr = new Date().toLocaleDateString('zh-TW');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = 10;
+  const ctx = canvas.getContext('2d');
+
+  function wrapCSV(text, font, maxWidth){
+    ctx.font = font;
+    const items = text.split(', ');
+    const lines = [];
+    let cur = "";
+    items.forEach(it=>{
+      const attempt = cur ? cur + ', ' + it : it;
+      if(ctx.measureText(attempt).width > maxWidth && cur){
+        lines.push(cur + ',');
+        cur = it;
+      }else{
+        cur = attempt;
+      }
+    });
+    if(cur) lines.push(cur);
+    return lines;
+  }
+
+  const headerH = 150;
+  const lineH = 19;
+  const sectionGap = 14;
+
+  const sectionLayouts = sections.map(sec=>{
+    const ownedLines = sec.ownedList.length ? wrapCSV(sec.ownedList.join(', '), "13px sans-serif", contentW-32) : ["（尚無）"];
+    const missingLines = sec.missingList.length ? wrapCSV(sec.missingList.join(', '), "13px sans-serif", contentW-32) : ["（已全部集滿！）"];
+    const innerPad = 16;
+    const blockH = innerPad + 34 + 20 + ownedLines.length*lineH + 20 + missingLines.length*lineH + innerPad;
+    return {...sec, ownedLines, missingLines, blockH};
+  });
+
+  const totalSectionsH = sectionLayouts.reduce((s,sec)=>s+sec.blockH+sectionGap,0);
+  const footerH = 50;
+  const totalH = headerH + totalSectionsH + footerH + PAD;
+
+  canvas.height = totalH;
+
+  const bgGrad = ctx.createLinearGradient(0,0,0,totalH);
+  bgGrad.addColorStop(0, "#1b1210");
+  bgGrad.addColorStop(1, "#120c0a");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0,0,W,totalH);
+
+  const glow = ctx.createRadialGradient(120,40,10,120,40,280);
+  glow.addColorStop(0, "rgba(201,67,42,0.35)");
+  glow.addColorStop(1, "rgba(201,67,42,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0,0,W,320);
+
+  ctx.fillStyle = "#ffb347";
+  ctx.font = "bold 13px sans-serif";
+  ctx.fillText("LCP 2026 · MADE FOR THIS", PAD, 40);
+
+  ctx.fillStyle = "#f4ece6";
+  ctx.font = "900 32px sans-serif";
+  ctx.fillText("我的小卡蒐集戰績", PAD, 80);
+
+  ctx.fillStyle = "#cbb8ad";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(`統計時間：${dateStr}`, PAD, 104);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#ff7a3d";
+  ctx.font = "900 40px sans-serif";
+  ctx.fillText(`${pct}%`, W-PAD, 70);
+  ctx.fillStyle = "#cbb8ad";
+  ctx.font = "13px sans-serif";
+  ctx.fillText(`已蒐集 ${gotAll} / ${totalAll} 張`, W-PAD, 92);
+  ctx.textAlign = "left";
+
+  ctx.strokeStyle = "#3a2620";
+  ctx.beginPath();
+  ctx.moveTo(PAD, headerH-10);
+  ctx.lineTo(W-PAD, headerH-10);
+  ctx.stroke();
+
+  let cy = headerH + 10;
+  sectionLayouts.forEach(sec=>{
+    const blockH = sec.blockH;
+    ctx.fillStyle = "#1f1512";
+    roundRect(ctx, PAD, cy, contentW, blockH, 12);
+    ctx.fill();
+    ctx.strokeStyle = "#3a2620";
+    ctx.lineWidth = 1;
+    roundRect(ctx, PAD, cy, contentW, blockH, 12);
+    ctx.stroke();
+
+    let ty = cy + 16;
+    ctx.fillStyle = "#ffb347";
+    ctx.font = "900 16px sans-serif";
+    const noteStr = sec.note ? `（${sec.note}）` : "";
+    ctx.fillText(`${sec.cat}${noteStr}`, PAD+16, ty+14);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#cbb8ad";
+    ctx.font = "13px sans-serif";
+    ctx.fillText(`${sec.got} / ${sec.total}`, W-PAD-16, ty+14);
+    ctx.textAlign = "left";
+
+    ty += 34;
+    ctx.fillStyle = "#2fae6b";
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("已持有：", PAD+16, ty);
+    ctx.fillStyle = "#c9f5da";
+    ctx.font = "13px sans-serif";
+    sec.ownedLines.forEach(line=>{
+      ty += lineH;
+      ctx.fillText(line, PAD+16, ty);
+    });
+
+    ty += 20;
+    ctx.fillStyle = "#e08a5c";
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("尚缺：", PAD+16, ty);
+    ctx.fillStyle = "#cbb8ad";
+    ctx.font = "13px sans-serif";
+    sec.missingLines.forEach(line=>{
+      ty += lineH;
+      ctx.fillText(line, PAD+16, ty);
+    });
+
+    cy += blockH + sectionGap;
+  });
+
+  ctx.fillStyle = "#8a7369";
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("由 LCP 小卡蒐集盤點工具產生", W/2, totalH-24);
+  ctx.textAlign = "left";
+
+  const link = document.createElement('a');
+  link.download = `LCP2026_小卡戰績_${dateStr.replace(/\//g,'-')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+document.getElementById("exportBtn").addEventListener("click", exportImage);
 
 document.getElementById("search").addEventListener("input", applySearch);
 
