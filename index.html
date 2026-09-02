@@ -318,8 +318,8 @@
 
   <div class="searchrow">
     <input type="text" id="search" placeholder="搜尋選手/主播名稱，或輸入隊名如 CFO 查全部類型...">
-    <input type="text" id="nicknameInput" placeholder="暱稱（選填,匯出圖片會用到）" style="max-width:150px;">
-    <button class="reset-btn" id="exportBtn">📸 匯出我的進度圖</button>
+    <input type="text" id="nicknameInput" placeholder="圖片上的暱稱" style="max-width:150px;">
+    <button class="reset-btn" id="exportBtn">📸 匯出蒐集圖</button>
     <button class="reset-btn" id="resetBtn">清空目前分類</button>
   </div>
   <div class="search-hint">輸入隊名代碼（如 <b>CFO</b>、<b>DCG</b>）可一次看到該隊在所有卡款中的卡片</div>
@@ -335,7 +335,7 @@
 
 <script>
 const DATA = {
-  "普卡A款": {
+  "普卡A": {
     "CFO":["Rest","Shadow","Pout","Doggo","Kino","Chawy"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang","Refra1n"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody","Rayfarky","Paz"],
@@ -345,7 +345,7 @@ const DATA = {
     "SHG":["Evi","Van1","Aria","Marble","Vsta","Corgi"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie","Hiro02","Warhorse"]
   },
-  "普卡B款": {
+  "普卡B": {
     "CFO":["Rest","Shadow","Pout","Doggo","Kino"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody"],
@@ -355,7 +355,7 @@ const DATA = {
     "SHG":["Evi","Van1","Aria","Marble","Vsta"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie"]
   },
-  "閃卡A款": {
+  "閃卡A": {
     "CFO":["Rest","Shadow","Doggo"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody"],
@@ -365,18 +365,18 @@ const DATA = {
     "SHG":["Evi","Van1","Aria","Marble","Vsta"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie"]
   },
-  "閃卡B款": {
-    "CFO":["Rest","Shadow","Pout","Doggo","Kino","Chawy"],
-    "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang","Refra1n"],
-    "DFM":["Momo","Citrus","Fisher","Kakkun","Woody","Paz"],
-    "GAM":["Kiaya","Draktharr","Aress","Artemis","Taki","Gloryy","Naul"],
-    "GZ":["1Jiang","Husha","JimieN","Shunn","Orca","Skywalk"],
-    "MVK":["Kratos","Gury","Chika","Harky","Siuloong","Sofm","Seany","Steller","Bigkoro"],
-    "SHG":["Evi","Van1","Aria","Marble","Vsta","Corgi"],
-    "TSW":["Pun","Hizto","Dire","Eddie","Bie","Warhorse"],
+  "閃卡B+隊伍卡": {
+    "CFO":["Rest","Shadow","Pout","Doggo","Kino","Chawy","隊伍卡"],
+    "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang","Refra1n","隊伍卡"],
+    "DFM":["Momo","Citrus","Fisher","Kakkun","Woody","Paz","隊伍卡"],
+    "GAM":["Kiaya","Draktharr","Aress","Artemis","Taki","Gloryy","Naul","Taki+Naul","隊伍卡"],
+    "GZ":["1Jiang","Husha","JimieN","Shunn","Orca","Skywalk","隊伍卡"],
+    "MVK":["Kratos","Gury","Chika","Harky","Siuloong","Sofm","Seany","Steller","Bigkoro","隊伍卡"],
+    "SHG":["Evi","Van1","Aria","Marble","Vsta","Corgi","柯基+戰馬","隊伍卡"],
+    "TSW":["Pun","Hizto","Dire","Eddie","Bie","Warhorse","隊伍卡"],
     "主播/賽評":["Jackie","Section","JR","Mattlin","Rhan","Tommy","Art","Mountain","Zod","Jay","Chenzui"]
   },
-  "親簽卡/印簽卡": {
+  "親簽/印簽": {
     "CFO":["Rest","Shadow","Pout","Doggo","Kino"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody"],
@@ -385,20 +385,14 @@ const DATA = {
     "MVK":["Kratos","Gury","Chika","Harky","Siuloong","Sofm","Seany","Steller"],
     "SHG":["Evi","Van1","Aria","Marble","Vsta"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie"]
-  },
-  "隊伍卡": {
-    "隊伍":["CFO","DCG","DFM","GAM","GZ","MVK","SHG","TSW"]
-  },
-  "隱藏卡": {
-    "雙人隱藏卡":["柯基+戰馬","Taki+Naul"]
   }
 };
 
 const CAT_NOTES = {
-  "普卡A款": "正臉去背照",
-  "普卡B款": "有場館背景",
-  "閃卡A款": "背景有隊名",
-  "閃卡B款": "銀色外框"
+  "普卡A": "證件照去背",
+  "普卡B": "有場館背景",
+  "閃卡A": "有隊名背景",
+  "閃卡B+隊伍卡": "銀色外框"
 };
 
 const TEAM_CODES = ["CFO","DCG","DFM","GAM","GZ","MVK","SHG","TSW"];
@@ -690,7 +684,7 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 function exportImage(){
-  const W = 940;
+  const W = 1590;
   const PAD = 40;
   const contentW = W - PAD*2;
 
@@ -706,8 +700,8 @@ function exportImage(){
     "GAM":"#f5a623",       // GAM Esports：金色雄鷹
     "GZ":"#6cc24a",        // Ground Zero：綠色幸運草
     "MVK":"#ff6a3d",       // MVK Esports：橘紅閃電
-    "SHG":"#9fb4c7",       // SoftBank Hawks：黑白簡約風格
-    "TSW":"#8b7cf6",       // Team Secret Whales：黑色鯨眼
+    "SHG":"#f0c419",       // SoftBank Hawks：黃黑配色
+    "TSW":"#d5dbe0",       // Team Secret Whales：灰白配色
     "主播/賽評":"#e0895c","隊伍":"#ff7a3d","雙人隱藏卡":"#c084fc"
   };
   function teamColor(team){ return TEAM_COLORS[team] || "#cbb8ad"; }
@@ -750,11 +744,11 @@ function exportImage(){
   }
 
   // 每個分類 = 一張表：欄是隊伍、列是卡片，已持有打勾、未持有打叉
-  const colGap = 6;
-  const rowH = 21;
-  const colHeaderH = 24;
-  const headerBarH = 32;
-  const innerPad = 14;
+  const colGap = 8;
+  const rowH = 29;
+  const colHeaderH = 30;
+  const headerBarH = 36;
+  const innerPad = 16;
 
   // 「隊伍卡」欄位卡片數多但沒有分隊伍，改成拆成2個子欄(4+4)以縮短版面
   const SPLIT_SUBCOLS = { "隊伍卡": 2 };
@@ -803,10 +797,10 @@ function exportImage(){
   const pct = totalAll ? Math.round(gotAll/totalAll*100) : 0;
   const dateStr = new Date().toLocaleDateString('zh-TW');
 
-  const headerH = 150;
+  const headerH = 160;
   const sectionGap = 14;
   const totalSectionsH = rowHeights.reduce((s,h)=>s+h+sectionGap,0);
-  const footerH = 50;
+  const footerH = 54;
   const totalH = headerH + totalSectionsH + footerH + PAD;
 
   canvas.height = totalH;
@@ -827,24 +821,24 @@ function exportImage(){
   const titleText = nickname ? `${nickname}的蒐集進度` : "我的蒐集進度";
 
   ctx.fillStyle = "#ffb347";
-  ctx.font = "bold 13px sans-serif";
-  ctx.fillText("LCP 2026 · MADE FOR THIS", PAD, 40);
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText("LCP 2026 · MADE FOR THIS", PAD, 42);
 
   ctx.fillStyle = "#f4ece6";
-  ctx.font = "900 32px sans-serif";
-  ctx.fillText(fitText(titleText, W-PAD*2-180, "900 32px sans-serif"), PAD, 80);
+  ctx.font = "900 34px sans-serif";
+  ctx.fillText(fitText(titleText, W-PAD*2-190, "900 34px sans-serif"), PAD, 84);
 
   ctx.fillStyle = "#cbb8ad";
-  ctx.font = "13px sans-serif";
-  ctx.fillText(`統計時間：${dateStr}`, PAD, 104);
+  ctx.font = "14px sans-serif";
+  ctx.fillText(`統計時間：${dateStr}`, PAD, 110);
 
   ctx.textAlign = "right";
   ctx.fillStyle = "#ff7a3d";
-  ctx.font = "900 40px sans-serif";
-  ctx.fillText(`${pct}%`, W-PAD, 70);
+  ctx.font = "900 42px sans-serif";
+  ctx.fillText(`${pct}%`, W-PAD, 72);
   ctx.fillStyle = "#cbb8ad";
-  ctx.font = "13px sans-serif";
-  ctx.fillText(`已蒐集 ${gotAll} / ${totalAll} 張`, W-PAD, 92);
+  ctx.font = "14px sans-serif";
+  ctx.fillText(`已蒐集 ${gotAll} / ${totalAll} 張`, W-PAD, 95);
   ctx.textAlign = "left";
 
   ctx.strokeStyle = "#3a2620";
@@ -864,14 +858,14 @@ function exportImage(){
     ctx.stroke();
 
     ctx.fillStyle = "#ffb347";
-    ctx.font = "900 16px sans-serif";
+    ctx.font = "900 18px sans-serif";
     const noteStr = sec.note ? `（${sec.note}）` : "";
-    ctx.fillText(`${sec.cat}${noteStr}`, x+innerPad, y+innerPad+14);
+    ctx.fillText(`${sec.cat}${noteStr}`, x+innerPad, y+innerPad+16);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#cbb8ad";
-    ctx.font = "13px sans-serif";
-    ctx.fillText(`${sec.got} / ${sec.total}`, x+w-innerPad, y+innerPad+14);
+    ctx.font = "14px sans-serif";
+    ctx.fillText(`${sec.got} / ${sec.total}`, x+w-innerPad, y+innerPad+16);
     ctx.textAlign = "left";
 
     const gridX = x + innerPad;
@@ -893,9 +887,9 @@ function exportImage(){
       ctx.stroke();
 
       ctx.fillStyle = tColor;
-      ctx.font = "bold 11px sans-serif";
+      ctx.font = "bold 13px sans-serif";
       ctx.textAlign = "center";
-      const headerLabel = fitText(team, colW-8, "bold 11px sans-serif");
+      const headerLabel = fitText(team, colW-8, "bold 13px sans-serif");
       ctx.fillText(headerLabel, colX+colW/2, gridY+(colHeaderH-4)/2+4);
       ctx.textAlign = "left";
 
@@ -911,15 +905,15 @@ function exportImage(){
         const subX = colX + subIdx*(subW+subGap);
         const rowY = gridY + colHeaderH + rowInSub*rowH;
         const isOwned = !!owned[cardId(sec.cat, team, card)];
-        const iconCx = subX + 9;
+        const iconCx = subX + 11;
         const iconCy = rowY + rowH/2;
-        if(isOwned) drawCheck(iconCx, iconCy, 6);
-        else drawCross(iconCx, iconCy, 6);
+        if(isOwned) drawCheck(iconCx, iconCy, 8);
+        else drawCross(iconCx, iconCy, 8);
 
-        ctx.fillStyle = isOwned ? "#eef7f0" : "#7a675e";
-        ctx.font = "11px sans-serif";
-        const label = fitText(card, subW-20, "11px sans-serif");
-        ctx.fillText(label, subX+18, rowY+rowH/2+4);
+        ctx.fillStyle = isOwned ? "#eef7f0" : "#8a766c";
+        ctx.font = "15px sans-serif";
+        const label = fitText(card, subW-30, "15px sans-serif");
+        ctx.fillText(label, subX+25, rowY+rowH/2+5);
       });
     });
   }
@@ -940,7 +934,7 @@ function exportImage(){
   });
 
   ctx.fillStyle = "#8a7369";
-  ctx.font = "11px sans-serif";
+  ctx.font = "12px sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("由 LCP 小卡蒐集盤點工具產生 · Threads @kunkuniv", W/2, totalH-24);
   ctx.textAlign = "left";
