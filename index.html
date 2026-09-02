@@ -335,7 +335,7 @@
 
 <script>
 const DATA = {
-  "一般卡A款": {
+  "普卡A款": {
     "CFO":["Rest","Shadow","Pout","Doggo","Kino","Chawy"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang","Refra1n"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody","Rayfarky","Paz"],
@@ -345,9 +345,9 @@ const DATA = {
     "SHG":["Evi","Van1","Aria","Marble","Vsta","Corgi"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie","Hiro02","Warhorse"]
   },
-  "一般卡B款": {
+  "普卡B款": {
     "CFO":["Rest","Shadow","Pout","Doggo","Kino"],
-    "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang"],
+    "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody"],
     "GAM":["Kiaya","Draktharr","Aress","Artemis","Taki","Gloryy"],
     "GZ":["1Jiang","Husha","JimieN","Shunn","Orca"],
@@ -357,7 +357,7 @@ const DATA = {
   },
   "閃卡A款": {
     "CFO":["Rest","Shadow","Doggo"],
-    "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang"],
+    "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody"],
     "GAM":["Kiaya","Draktharr","Aress","Artemis","Taki"],
     "GZ":["1Jiang","Husha","JimieN","Shunn","Orca"],
@@ -374,21 +374,17 @@ const DATA = {
     "MVK":["Kratos","Gury","Chika","Harky","Siuloong","Sofm","Seany","Steller","Bigkoro"],
     "SHG":["Evi","Van1","Aria","Marble","Vsta","Corgi"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie","Warhorse"],
-    "Caster/Host":["Jackie","Section","JR","Mattlin","Rhan","Tommy","Art","Mountain","Zod","Jay","Chenzui"]
+    "主播/賽評":["Jackie","Section","JR","Mattlin","Rhan","Tommy","Art","Mountain","Zod","Jay","Chenzui"]
   },
-  "親簽卡": {
+  "親簽卡/印簽卡": {
     "CFO":["Rest","Shadow","Pout","Doggo","Kino"],
     "DCG":["Flauren","Pop9","HongSuo","Feng","ShiauC","XiaoXiang"],
     "DFM":["Momo","Citrus","Fisher","Kakkun","Woody"],
-    "GAM":["Kiaya","Draktharr","Artemis","Taki","Gloryy"],
-    "GZ":["1Jiang","Husha"],
+    "GAM":["Kiaya","Draktharr","Aress(印)","Artemis","Taki","Gloryy"],
+    "GZ":["1Jiang","Husha","JimieN(印)","Shunn(印)","Orca(印)"],
     "MVK":["Kratos","Gury","Chika","Harky","Siuloong","Sofm","Seany","Steller"],
     "SHG":["Evi","Van1","Aria","Marble","Vsta"],
     "TSW":["Pun","Hizto","Dire","Eddie","Bie"]
-  },
-  "印簽卡": {
-    "GAM":["Aress"],
-    "GZ":["JimieN","Shunn","Orca"]
   },
   "隊伍卡": {
     "隊伍":["CFO","DCG","DFM","GAM","GZ","MVK","SHG","TSW"]
@@ -399,8 +395,8 @@ const DATA = {
 };
 
 const CAT_NOTES = {
-  "一般卡A款": "正臉去背",
-  "一般卡B款": "側臉有背景",
+  "普卡A款": "正臉去背照",
+  "普卡B款": "有場館背景",
   "閃卡A款": "背景有隊名",
   "閃卡B款": "銀色外框"
 };
@@ -712,7 +708,7 @@ function exportImage(){
     "MVK":"#ff6a3d",       // MVK Esports：橘紅閃電
     "SHG":"#9fb4c7",       // SoftBank Hawks：黑白簡約風格
     "TSW":"#8b7cf6",       // Team Secret Whales：黑色鯨眼
-    "Caster/Host":"#e0895c","隊伍":"#ff7a3d","雙人隱藏卡":"#c084fc"
+    "主播/賽評":"#e0895c","隊伍":"#ff7a3d","雙人隱藏卡":"#c084fc"
   };
   function teamColor(team){ return TEAM_COLORS[team] || "#cbb8ad"; }
 
