@@ -122,8 +122,9 @@
   .tab.dimmed{opacity:0.45;}
 
   .searchrow{
-    display:flex;gap:8px;margin-bottom:8px;
+    display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;
   }
+  .searchrow input[type=text]{min-width:160px;}
   input[type=text]{
     flex:1;
     background:var(--bg-1);
@@ -145,6 +146,8 @@
     white-space:nowrap;
   }
   .reset-btn:hover{color:#ff8a7a;border-color:#7a3428;}
+  .nav-btn.active{color:#fff;border-color:#8aa4ff;background:#2a3566;}
+  .nav-btn.active:hover{color:#fff;border-color:#8aa4ff;}
 
   .search-hint{
     font-size:11px;
@@ -229,39 +232,78 @@
     border-radius:10px;
     font-size:13.5px;
     font-weight:600;
-    cursor:pointer;
+    cursor:default;
     user-select:none;
     transition:all .12s ease;
     display:flex;
     align-items:center;
     gap:6px;
   }
-  .card-chip:hover{border-color:var(--ember-1);color:var(--text-0);}
   .card-chip.got{
     background:var(--got-bg);
     border-color:var(--got);
     color:#c9f5da;
   }
-  .card-chip .mark{
-    width:14px;height:14px;
-    border-radius:4px;
-    border:1.5px solid var(--text-2);
-    flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;
-    font-size:10px;
-    color:transparent;
-  }
-  .card-chip.got .mark{
-    border-color:var(--got);
-    background:var(--got);
-    color:#0e1f16;
-  }
   .card-chip.hidden{display:none;}
+  .card-chip.wished:not(.got){
+    border-color:#e0607e;
+    background:rgba(224,96,126,0.10);
+  }
+  .card-chip .stepper{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    margin-left:2px;
+  }
+  .card-chip .step-num{
+    min-width:20px;
+    text-align:center;
+    font-size:14px;
+    font-weight:800;
+    color:var(--ember-2);
+  }
+  .card-chip .chip-ctrl{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:22px;
+    height:22px;
+    border-radius:6px;
+    font-size:14px;
+    line-height:1;
+    color:var(--text-2);
+    margin-left:2px;
+    cursor:pointer;
+  }
+  .card-chip .chip-ctrl:hover{background:rgba(255,255,255,0.10);color:var(--text-0);}
+  .card-chip .chip-plus,
+  .card-chip .chip-minus{
+    font-weight:800;
+    color:var(--ember-2);
+    border:1px solid rgba(255,179,71,0.35);
+    background:rgba(255,179,71,0.08);
+  }
+  .card-chip:not(.got) .chip-plus{opacity:.7;}
+  .card-chip .chip-star{font-size:16px;}
+  .card-chip .chip-star.on{color:#ff6b8a;}
+
+  .trade-actions{
+    display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;
+  }
+  .trade-empty{
+    padding:36px 18px;
+    text-align:center;
+    color:var(--text-2);
+    font-size:13px;
+    line-height:1.8;
+  }
 
   #teamSearchResults{display:none;}
   #teamSearchResults.active{display:block;}
   #missingView{display:none;}
   #missingView.active{display:block;}
+  #tradeView{display:none;}
+  #tradeView.active{display:block;}
   .team-search-title{
     font-size:13px;
     color:var(--text-1);
@@ -327,7 +369,7 @@
     <div class="title-block">
       <div class="eyebrow">LCP 2026 · MADE FOR THIS</div>
       <h1>小卡蒐集盤點</h1>
-      <div class="subtitle">點卡片標記持有,進度自動儲存</div>
+      <div class="subtitle">用 ＋ / － 記錄持有張數,進度自動儲存</div>
       <div class="subtitle" style="opacity:0.55;">Threads @kunkuniv</div>
       <div class="subtitle" id="saveStatus" style="margin-top:2px;"></div>
     </div>
@@ -336,19 +378,24 @@
       <div class="stat-text">
         <div class="n">已蒐集 <b id="gotCount">0</b> / <span id="totalCount">0</span></div>
         <div class="n" id="catStatLine">目前分類：0 / 0</div>
+        <div class="n" id="tradeStatLine">可換 0 張 · 想收 0 張</div>
       </div>
     </div>
   </header>
 
-  <div class="toolbar" id="tabs"></div>
-
   <div class="searchrow">
     <input type="text" id="search" placeholder="搜尋選手/主播名稱，或輸入隊名如 CFO 查全部類型...">
-    <input type="text" id="nicknameInput" placeholder="圖片上的暱稱" style="max-width:150px;">
-    <button class="reset-btn" id="exportBtn">📸 匯出蒐集圖</button>
-    <button class="reset-btn" id="missingBtn">📋 還沒有的卡</button>
+    <input type="text" id="nicknameInput" placeholder="我的暱稱" style="max-width:150px;">
+    <button class="reset-btn nav-btn active" id="homeBtn">蒐集盤點</button>
+    <button class="reset-btn nav-btn" id="missingBtn">缺卡清單</button>
+    <button class="reset-btn nav-btn" id="tradeBtn">換卡清單</button>
   </div>
   <div class="search-hint">輸入隊名代碼（如 <b>CFO</b>、<b>DCG</b>）可一次看到該隊在所有卡款中的卡片</div>
+  <div class="search-hint" style="margin-top:-12px;"><b>＋</b> / <b>－</b> 增減持有張數 · <b>♡</b> 標記想收</div>
+
+  <div class="trade-actions" id="homeActions"><button class="reset-btn" id="exportBtn">匯出蒐集圖</button></div>
+
+  <div class="toolbar" id="tabs"></div>
 
   <div id="panels">
     <div class="loading">載入進度中...</div>
@@ -356,6 +403,7 @@
 
   <div id="teamSearchResults"></div>
   <div id="missingView"></div>
+  <div id="tradeView"></div>
 
   <footer>資料點擊即儲存 · 僅存於你自己的裝置紀錄</footer>
 </div>
@@ -416,16 +464,18 @@ const DATA = {
 };
 
 const CAT_NOTES = {
-  "普卡A": "證件照去背",
-  "普卡B": "有場館背景",
-  "閃卡A": "有隊名背景",
+  "普卡A": "證件照",
+  "普卡B": "場館背景",
+  "閃卡A": "隊名背景",
   "閃卡B+隊伍卡": "銀色外框"
 };
 
 const TEAM_CODES = ["CFO","DCG","DFM","GAM","GZ","MVK","SHG","TSW"];
 
 const STORAGE_KEY = "lcp2026_owned_cards";
+const WISH_KEY = "lcp2026_wish_cards";
 const NICKNAME_KEY = "lcp2026_nickname";
+const MAX_COUNT = 99;
 let storageBackend = null; // 'claude' 或 'local'
 
 function detectStorageBackend(){
@@ -458,13 +508,55 @@ async function storageSetValue(key, value){
   window.localStorage.setItem(key, value);
 }
 
-let owned = {};
+let owned = {};   // 卡片id -> 持有張數（沒有的卡不會出現在裡面）
+let wish = {};    // 卡片id -> true（想收）
 let activeCat = Object.keys(DATA)[0];
 let searchTerm = "";
 let teamMatches = [];
 let missingViewActive = false;
+let tradeViewActive = false;
 
 function cardId(cat, team, card){ return cat+"__"+team+"__"+card; }
+
+function getCount(id){ return owned[id] || 0; }
+function setCount(id, n){
+  n = Math.max(0, Math.min(MAX_COUNT, Math.floor(n)));
+  if(n <= 0) delete owned[id];
+  else owned[id] = n;
+}
+function isWished(id){ return !!wish[id]; }
+
+// 讀取舊資料：舊版是 true/false，統一轉成張數；同時丟掉已不存在的舊分類紀錄
+function normalizeOwned(raw){
+  const result = {};
+  if(!raw || typeof raw !== "object") return result;
+  Object.keys(DATA).forEach(cat=>{
+    Object.keys(DATA[cat]).forEach(team=>{
+      DATA[cat][team].forEach(card=>{
+        const id = cardId(cat,team,card);
+        const v = raw[id];
+        let n = 0;
+        if(v === true) n = 1;
+        else if(typeof v === "number" && v > 0) n = Math.min(MAX_COUNT, Math.floor(v));
+        if(n > 0) result[id] = n;
+      });
+    });
+  });
+  return result;
+}
+function normalizeWish(raw){
+  const result = {};
+  if(!raw || typeof raw !== "object") return result;
+  Object.keys(DATA).forEach(cat=>{
+    Object.keys(DATA[cat]).forEach(team=>{
+      DATA[cat][team].forEach(card=>{
+        const id = cardId(cat,team,card);
+        if(raw[id]) result[id] = true;
+      });
+    });
+  });
+  return result;
+}
 
 function totalCardsInCat(cat){
   return Object.values(DATA[cat]).reduce((s,arr)=>s+arr.length,0);
@@ -482,9 +574,22 @@ function gotCardsInCat(cat){
   return c;
 }
 function gotCardsAll(){
-  let c=0;
-  for(const k in owned) if(owned[k]) c++;
-  return c;
+  return Object.keys(DATA).reduce((s,cat)=>s+gotCardsInCat(cat),0);
+}
+
+// 可換出的重複張數（持有 2 張以上，多出來的）
+function spareCount(id){ return Math.max(0, getCount(id) - 1); }
+function totalSpare(){
+  let n = 0;
+  Object.keys(DATA).forEach(cat=>Object.keys(DATA[cat]).forEach(team=>
+    DATA[cat][team].forEach(card=>{ n += spareCount(cardId(cat,team,card)); })));
+  return n;
+}
+function totalWish(){
+  let n = 0;
+  Object.keys(DATA).forEach(cat=>Object.keys(DATA[cat]).forEach(team=>
+    DATA[cat][team].forEach(card=>{ if(isWished(cardId(cat,team,card))) n++; })));
+  return n;
 }
 
 function buildTabs(){
@@ -508,13 +613,69 @@ function buildTabs(){
 }
 
 function isTeamFullyOwned(cat, team){
-  return DATA[cat][team].every(card=>owned[cardId(cat,team,card)]);
+  return DATA[cat][team].every(card=>getCount(cardId(cat,team,card)) > 0);
+}
+
+// 依目前張數 / 想收狀態，重畫單一張卡片（不重建整頁，捲動位置不會跳）
+function paintChip(chip, id, card){
+  const n = getCount(id);
+  const wished = isWished(id);
+  chip.classList.toggle("got", n > 0);
+  chip.classList.toggle("wished", wished);
+  // 0 張：只顯示「＋」（點一下就是 1 張）；1 張以上：顯示「－ 數字 ＋」計數器
+  let counter = "";
+  if(n >= 1){
+    counter =
+      `<span class="stepper">` +
+        `<span class="chip-ctrl chip-minus" title="少一張">－</span>` +
+        `<span class="step-num">${n}</span>` +
+        `<span class="chip-ctrl chip-plus" title="多一張">＋</span>` +
+      `</span>`;
+  }else{
+    counter = `<span class="chip-ctrl chip-plus" title="記錄 1 張">＋</span>`;
+  }
+  chip.innerHTML =
+    `<span class="card-name">${card}</span>` +
+    counter +
+    `<span class="chip-ctrl chip-star${wished ? " on" : ""}" title="${wished ? "取消想收" : "標記想收"}">${wished ? "♥" : "♡"}</span>`;
+}
+
+function refreshBlockProgress(block){
+  const chips = block.querySelectorAll(".card-chip");
+  const gotN = block.querySelectorAll(".card-chip.got").length;
+  const prog = block.querySelector(".team-progress");
+  if(prog) prog.innerHTML = `<b>${gotN}</b> / ${chips.length}`;
+}
+
+function afterCardChanged(block){
+  if(block) refreshBlockProgress(block);
+  updateStats();
+  buildTabs();
+  saveOwned();
+}
+
+// 增減張數一律用 ＋ / －（點卡片本身不會有動作）
+function onChipPlusClick(id, card, chip, block){
+  setCount(id, getCount(id) + 1);
+  paintChip(chip, id, card);
+  afterCardChanged(block);
+}
+function onChipMinusClick(id, card, chip, block){
+  setCount(id, getCount(id) - 1);
+  paintChip(chip, id, card);
+  afterCardChanged(block);
+}
+function onChipStarClick(id, card, chip, block){
+  if(wish[id]) delete wish[id]; else wish[id] = true;
+  paintChip(chip, id, card);
+  updateStats();
+  saveOwned();
 }
 
 function makeCardGridBlock(cat, team, cards, labelExtra){
   const block = document.createElement("div");
   block.className = "team-block";
-  const gotInTeam = cards.filter(c=>owned[cardId(cat,team,c)]).length;
+  const gotInTeam = cards.filter(c=>getCount(cardId(cat,team,c)) > 0).length;
   const allOwned = isTeamFullyOwned(cat, team);
 
   block.innerHTML = `
@@ -529,31 +690,42 @@ function makeCardGridBlock(cat, team, cards, labelExtra){
   `;
 
   const selectBtn = block.querySelector(".team-select-btn");
-  selectBtn.onclick = async (e)=>{
+  selectBtn.onclick = (e)=>{
     e.stopPropagation();
-    const newVal = !allOwned;
+    // 全選：沒有的補成 1 張（已經有的張數不動）；取消全選：全部歸零
     DATA[cat][team].forEach(card=>{
-      owned[cardId(cat,team,card)] = newVal;
+      const id = cardId(cat,team,card);
+      if(allOwned) setCount(id, 0);
+      else if(getCount(id) === 0) setCount(id, 1);
     });
-    if(missingViewActive) buildMissingView();
-    else if(teamMatches.length>0) buildTeamSearchResults();
-    else buildPanels();
-    buildTabs();
-    updateStats();
-    await saveOwned();
+    refreshCurrentView();
+    saveOwned();
   };
 
   const grid = block.querySelector(".card-grid");
   cards.forEach(card=>{
     const id = cardId(cat,team,card);
     const chip = document.createElement("div");
-    chip.className = "card-chip" + (owned[id] ? " got":"");
+    chip.className = "card-chip";
     chip.dataset.name = card.toLowerCase();
-    chip.innerHTML = `<span class="mark">✓</span><span>${card}</span>`;
-    chip.onclick = ()=> toggleCard(id, chip, block, cat);
+    paintChip(chip, id, card);
+    chip.onclick = (e)=>{
+      if(e.target.closest(".chip-plus")) onChipPlusClick(id, card, chip, block);
+      else if(e.target.closest(".chip-minus")) onChipMinusClick(id, card, chip, block);
+      else if(e.target.closest(".chip-star")) onChipStarClick(id, card, chip, block);
+    };
     grid.appendChild(chip);
   });
   return block;
+}
+
+// 重畫目前正在看的畫面（分類 / 隊名搜尋 / 還沒有的卡 / 換卡清單）
+function refreshCurrentView(){
+  if(tradeViewActive) buildTradeView();
+  else if(missingViewActive) buildMissingView();
+  else { buildPanels(); applySearch(); }
+  buildTabs();
+  updateStats();
 }
 
 function buildPanels(){
@@ -667,7 +839,7 @@ function buildMissingCanvas(missingData){
 
   ctx.fillStyle = "#f4ece6";
   ctx.font = "900 24px sans-serif";
-  ctx.fillText("還沒有的卡", PAD, 40);
+  ctx.fillText("缺卡清單", PAD, 40);
 
   function drawPanel(cat, x, y, w, h){
     const sec = sectionMeta[cat];
@@ -775,18 +947,6 @@ function buildMissingView(){
   container.appendChild(canvas);
 }
 
-async function toggleCard(id, chip, block, cat){
-  owned[id] = !owned[id];
-  chip.classList.toggle("got");
-  const teamCards = chip.parentElement.querySelectorAll(".card-chip");
-  const gotN = Array.from(teamCards).filter(c=>c.classList.contains("got")).length;
-  block.querySelector(".team-progress b").textContent = gotN;
-  updateStats();
-  buildTabs();
-  if(missingViewActive) buildMissingView();
-  await saveOwned();
-}
-
 function updateStats(){
   const totalAll = totalCardsAll();
   const gotAll = gotCardsAll();
@@ -795,10 +955,12 @@ function updateStats(){
   document.getElementById("totalCount").textContent = totalAll;
   document.getElementById("ringPct").textContent = pct + "%";
   document.getElementById("ring").style.setProperty("--pct", pct);
-  document.getElementById("catStatLine").textContent =
-    teamMatches.length>0
+  const catLine = teamMatches.length>0
       ? `隊名搜尋：${teamMatches.join("/")}`
       : `目前分類：${gotCardsInCat(activeCat)} / ${totalCardsInCat(activeCat)}`;
+  document.getElementById("catStatLine").textContent = catLine;
+  const tradeLine = document.getElementById("tradeStatLine");
+  if(tradeLine) tradeLine.textContent = `可換 ${totalSpare()} 張 · 想收 ${totalWish()} 張`;
 }
 
 function applySearch(){
@@ -840,11 +1002,15 @@ async function loadOwned(){
   detectStorageBackend();
   try{
     const val = await storageGetValue(STORAGE_KEY);
-    if(val){
-      owned = JSON.parse(val);
-    }
+    owned = val ? normalizeOwned(JSON.parse(val)) : {};
   }catch(e){
     owned = {};
+  }
+  try{
+    const wval = await storageGetValue(WISH_KEY);
+    wish = wval ? normalizeWish(JSON.parse(wval)) : {};
+  }catch(e){
+    wish = {};
   }
 }
 
@@ -877,11 +1043,13 @@ async function flushSave(){
   saveInFlight = true;
 
   const payload = JSON.stringify(owned);
+  const wishPayload = JSON.stringify(wish);
   const maxAttempts = 3;
 
   for(let attempt=1; attempt<=maxAttempts; attempt++){
     try{
       await storageSetValue(STORAGE_KEY, payload);
+      await storageSetValue(WISH_KEY, wishPayload);
       setSaveStatus(storageBackend === "local" ? "✓ 已儲存在此瀏覽器" : "✓ 已儲存", false);
       saveInFlight = false;
       if(pendingSaveWanted){
@@ -1118,7 +1286,8 @@ function exportImage(){
       const cards = DATA[sec.cat][team];
       cards.forEach((card, j)=>{
         const rowY = rowBandY + colHeaderH + j*rowH;
-        const isOwned = !!owned[cardId(sec.cat, team, card)];
+        const cnt = getCount(cardId(sec.cat, team, card));
+        const isOwned = cnt > 0;
         const iconCx = colX + 11;
         const iconCy = rowY + rowH/2;
         if(isOwned) drawCheck(iconCx, iconCy, 8);
@@ -1126,7 +1295,8 @@ function exportImage(){
 
         ctx.fillStyle = isOwned ? "#eef7f0" : "#8a766c";
         ctx.font = "17px sans-serif";
-        const label = fitText(card, colW-30, "17px sans-serif");
+        const cardText = cnt >= 2 ? `${card} ×${cnt}` : card;
+        const label = fitText(cardText, colW-30, "17px sans-serif");
         ctx.fillText(label, colX+24, rowY+rowH/2+6);
       });
     });
@@ -1153,31 +1323,326 @@ function exportImage(){
 
 document.getElementById("exportBtn").addEventListener("click", exportImage);
 
-document.getElementById("missingBtn").addEventListener("click", ()=>{
-  missingViewActive = !missingViewActive;
+// ===== 換卡清單：整理「我可以換」與「我想收」 =====
+function collectTradeLists(){
+  const give = [];
+  const want = [];
+  Object.keys(DATA).forEach(cat=>{
+    const giveTeams = [], wantTeams = [];
+    Object.keys(DATA[cat]).forEach(team=>{
+      const g = [], w = [];
+      DATA[cat][team].forEach(card=>{
+        const id = cardId(cat,team,card);
+        const sp = spareCount(id);
+        if(sp > 0) g.push({card, qty: sp});
+        if(isWished(id)) w.push({card, qty: 1});
+      });
+      if(g.length) giveTeams.push({team, items: g});
+      if(w.length) wantTeams.push({team, items: w});
+    });
+    if(giveTeams.length) give.push({cat, teams: giveTeams});
+    if(wantTeams.length) want.push({cat, teams: wantTeams});
+  });
+  return {give, want};
+}
+
+function tradeItemText(item){
+  return item.qty >= 2 ? `${item.card}×${item.qty}` : item.card;
+}
+
+function buildTradeText(){
+  const {give, want} = collectTradeLists();
+  const nick = document.getElementById("nicknameInput").value.trim();
+  const lines = [];
+  lines.push(nick ? `【${nick}的LCP換卡清單】` : "【LCP 換卡清單】");
+  const pushSection = (heading, sections)=>{
+    if(!sections.length) return;
+    lines.push("");
+    lines.push(heading);
+    sections.forEach(sec=>sec.teams.forEach(t=>{
+      lines.push(`${sec.cat}｜${t.team}：${t.items.map(tradeItemText).join("、")}`);
+    }));
+  };
+  pushSection("我可以換", give);
+  pushSection("我想收", want);
+  return lines.join("\n");
+}
+
+async function copyTradeText(btn){
+  const text = buildTradeText();
+  let ok = false;
+  try{
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  }catch(e){
+    try{
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+    }catch(e2){ ok = false; }
+  }
+  const original = btn.textContent;
+  btn.textContent = ok ? "✓ 已複製" : "⚠ 複製失敗，請改用匯出圖片";
+  setTimeout(()=>{ btn.textContent = original; }, 1800);
+}
+
+function buildTradeCanvas(){
+  const {give, want} = collectTradeLists();
+  const W = 1080, PAD = 40, GAP = 24;
+  const colW = (W - PAD*2 - GAP) / 2;
+  const innerPad = 20;
+  const textW = colW - innerPad*2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = 10;
+  const ctx = canvas.getContext('2d');
+
+  const FONT_CAT = "900 20px sans-serif";
+  const FONT_TEAM = "bold 19px sans-serif";
+  const FONT_ITEM = "19px sans-serif";
+  const LINE_H = 30, CAT_H = 40, TEAM_GAP = 4;
+
+  function layoutColumn(sections){
+    const ops = [];
+    let y = 0;
+    sections.forEach(sec=>{
+      const note = CAT_NOTES[sec.cat] ? `（${CAT_NOTES[sec.cat]}）` : "";
+      ops.push({type:"cat", text: sec.cat + note, y: y + 22});
+      y += CAT_H;
+      sec.teams.forEach(t=>{
+        const label = t.team + "：";
+        ctx.font = FONT_TEAM;
+        const labelW = ctx.measureText(label).width;
+        ctx.font = FONT_ITEM;
+        const avail = textW - labelW;
+        const tokens = t.items.map(tradeItemText);
+        const lines = [];
+        let cur = "";
+        tokens.forEach(tok=>{
+          const attempt = cur ? cur + "、" + tok : tok;
+          if(cur && ctx.measureText(attempt + "、").width > avail){
+            lines.push(cur + "、");
+            cur = tok;
+          }else{
+            cur = attempt;
+          }
+        });
+        if(cur) lines.push(cur);
+        lines.forEach((ln, idx)=>{
+          ops.push({type:"line", label: idx === 0 ? label : null, labelW, color: missingTeamColor(t.team), text: ln, y: y + 20});
+          y += LINE_H;
+        });
+        y += TEAM_GAP;
+      });
+      y += 10;
+    });
+    return {ops, height: y};
+  }
+
+  const left = layoutColumn(give);
+  const right = layoutColumn(want);
+  const contentH = Math.max(left.height, right.height, 70);
+  const panelHeadH = 60;
+  const panelH = panelHeadH + contentH + innerPad;
+  const headerH = 150, footerH = 56;
+  const totalH = headerH + panelH + footerH;
+  canvas.height = totalH; // 改高度會重置畫布設定，下面才開始真正繪製
+
+  const bgGrad = ctx.createLinearGradient(0,0,0,totalH);
+  bgGrad.addColorStop(0, "#1b1210");
+  bgGrad.addColorStop(1, "#120c0a");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0,0,W,totalH);
+
+  const glow = ctx.createRadialGradient(120,40,10,120,40,280);
+  glow.addColorStop(0, "rgba(201,67,42,0.35)");
+  glow.addColorStop(1, "rgba(201,67,42,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0,0,W,320);
+
+  const nickname = document.getElementById("nicknameInput").value.trim() || "我";
+  const dateStr = new Date().toLocaleDateString('zh-TW');
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ffb347";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText("LCP 2026 · MADE FOR THIS", PAD, 42);
+
+  ctx.fillStyle = "#f4ece6";
+  ctx.font = "900 48px sans-serif";
+  let nickDisplay = nickname;
+  while(nickDisplay.length > 1 && ctx.measureText(nickDisplay).width > W - PAD*2 - 220){
+    nickDisplay = nickDisplay.slice(0,-1);
+  }
+  if(nickDisplay !== nickname) nickDisplay += "…";
+  ctx.fillText(nickDisplay, PAD, 96);
+  const nickW = ctx.measureText(nickDisplay).width;
+  ctx.fillStyle = "#cbb8ad";
+  ctx.font = "700 22px sans-serif";
+  ctx.fillText("的換卡清單", PAD + nickW + 10, 96);
+
+  ctx.fillStyle = "#cbb8ad";
+  ctx.font = "14px sans-serif";
+  ctx.fillText(`統計時間：${dateStr}`, PAD, 124);
+
+  function drawColumn(x, title, accent, countText, layout, emptyText){
+    const y0 = headerH;
+    ctx.fillStyle = "#1f1512";
+    roundRect(ctx, x, y0, colW, panelH, 12);
+    ctx.fill();
+    ctx.strokeStyle = "#3a2620";
+    ctx.lineWidth = 1;
+    roundRect(ctx, x, y0, colW, panelH, 12);
+    ctx.stroke();
+
+    ctx.fillStyle = accent;
+    ctx.font = "900 24px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(title, x + innerPad, y0 + 38);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#cbb8ad";
+    ctx.font = "15px sans-serif";
+    ctx.fillText(countText, x + colW - innerPad, y0 + 38);
+    ctx.textAlign = "left";
+
+    const baseY = y0 + panelHeadH;
+    if(layout.ops.length === 0){
+      ctx.fillStyle = "#8a766c";
+      ctx.font = "16px sans-serif";
+      ctx.fillText(emptyText, x + innerPad, baseY + 28);
+      return;
+    }
+    layout.ops.forEach(op=>{
+      if(op.type === "cat"){
+        ctx.fillStyle = "#ffb347";
+        ctx.font = FONT_CAT;
+        ctx.fillText(op.text, x + innerPad, baseY + op.y);
+      }else{
+        if(op.label){
+          ctx.fillStyle = op.color;
+          ctx.font = FONT_TEAM;
+          ctx.fillText(op.label, x + innerPad, baseY + op.y);
+        }
+        ctx.fillStyle = "#eef7f0";
+        ctx.font = FONT_ITEM;
+        ctx.fillText(op.text, x + innerPad + op.labelW, baseY + op.y);
+      }
+    });
+  }
+
+  const giveTotal = give.reduce((s,sec)=>s+sec.teams.reduce((a,t)=>a+t.items.reduce((b,i)=>b+i.qty,0),0),0);
+  const wantTotal = want.reduce((s,sec)=>s+sec.teams.reduce((a,t)=>a+t.items.length,0),0);
+
+  drawColumn(PAD, "我可以換", "#5fd99a", `共 ${giveTotal} 張`, left, "（目前沒有重複的卡）");
+  drawColumn(PAD + colW + GAP, "我想收", "#ff7a93", `共 ${wantTotal} 張`, right, "（還沒有標記想收的卡）");
+
+  ctx.fillStyle = "#8a7369";
+  ctx.font = "13px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("由 LCP 小卡蒐集盤點工具產生 · Threads @kunkuniv", W/2, totalH - 24);
+  ctx.textAlign = "left";
+
+  return canvas;
+}
+
+function downloadTradeImage(){
+  const canvas = buildTradeCanvas();
+  const dateStr = new Date().toLocaleDateString('zh-TW');
+  const link = document.createElement('a');
+  link.download = `LCP2026_換卡清單_${dateStr.replace(/\//g,'-')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function buildTradeView(){
+  const container = document.getElementById("tradeView");
+  container.innerHTML = "";
+
+  const {give, want} = collectTradeLists();
+
+  const title = document.createElement("div");
+  title.className = "team-search-title";
+  title.innerHTML = `可換 <b>${totalSpare()}</b> 張 · 想收 <b>${totalWish()}</b> 張`;
+  container.appendChild(title);
+
+  if(give.length === 0 && want.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "trade-empty";
+    empty.innerHTML = "還沒有可換或想收的卡<br>在分類頁面點卡片上的 <b>＋</b> 記錄重複的卡、點 <b>♡</b> 標記想收的卡，這裡就會自動整理出來";
+    container.appendChild(empty);
+    return;
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "trade-actions";
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "reset-btn";
+  copyBtn.textContent = "複製換卡文字";
+  copyBtn.onclick = ()=> copyTradeText(copyBtn);
+  const dlBtn = document.createElement("button");
+  dlBtn.className = "reset-btn";
+  dlBtn.textContent = "匯出換卡圖";
+  dlBtn.onclick = downloadTradeImage;
+  actions.appendChild(copyBtn);
+  actions.appendChild(dlBtn);
+  container.appendChild(actions);
+
+  const canvas = buildTradeCanvas();
+  canvas.style.maxWidth = "100%";
+  canvas.style.height = "auto";
+  canvas.style.display = "block";
+  canvas.style.borderRadius = "12px";
+  container.appendChild(canvas);
+}
+
+// ===== 畫面切換：一般 / 還沒有的卡 / 換卡清單 =====
+function setViewMode(mode){
+  missingViewActive = (mode === "missing");
+  tradeViewActive = (mode === "trade");
+  const special = missingViewActive || tradeViewActive;
+
   const tabsEl = document.getElementById("tabs");
   const panelsEl = document.getElementById("panels");
   const teamResultsEl = document.getElementById("teamSearchResults");
-  const missingEl = document.getElementById("missingView");
-  const missingBtn = document.getElementById("missingBtn");
+  document.getElementById("missingView").classList.toggle("active", missingViewActive);
+  document.getElementById("tradeView").classList.toggle("active", tradeViewActive);
+  document.getElementById("homeBtn").classList.toggle("active", !special);
+  document.getElementById("homeActions").style.display = special ? "none" : "";
+  document.getElementById("missingBtn").classList.toggle("active", missingViewActive);
+  document.getElementById("tradeBtn").classList.toggle("active", tradeViewActive);
 
-  if(missingViewActive){
-    tabsEl.style.display = "none";
+  tabsEl.style.display = special ? "none" : "";
+  if(special){
     panelsEl.style.display = "none";
     teamResultsEl.classList.remove("active");
-    missingEl.classList.add("active");
-    missingBtn.textContent = "⬅ 返回分類";
-    buildMissingView();
+    if(missingViewActive) buildMissingView(); else buildTradeView();
   }else{
-    tabsEl.style.display = "";
     panelsEl.style.display = "";
-    missingEl.classList.remove("active");
-    missingBtn.textContent = "📋 還沒有的卡";
     render();
   }
+}
+
+document.getElementById("missingBtn").addEventListener("click", ()=>{
+  setViewMode("missing");
+});
+document.getElementById("tradeBtn").addEventListener("click", ()=>{
+  setViewMode("trade");
+});
+document.getElementById("homeBtn").addEventListener("click", ()=>{
+  setViewMode(null);
 });
 
-document.getElementById("search").addEventListener("input", applySearch);
+document.getElementById("search").addEventListener("input", ()=>{
+  // 在特殊畫面裡開始搜尋時，先回到一般畫面
+  if(missingViewActive || tradeViewActive) setViewMode(null);
+  else applySearch();
+});
 
 async function loadNickname(){
   try{
